@@ -1,1 +1,44 @@
-if(!self.define){let e,s={};const n=(n,i)=>(n=new URL(n+".js",i).href,s[n]||new Promise(s=>{if("document"in self){const e=document.createElement("script");e.src=n,e.onload=s,document.head.appendChild(e)}else e=n,importScripts(n),s()}).then(()=>{let e=s[n];if(!e)throw new Error(`Module ${n} didn’t register its module`);return e}));self.define=(i,o)=>{const r=e||("document"in self?document.currentScript.src:"")||location.href;if(s[r])return;let t={};const c=e=>n(e,r),d={module:{uri:r},exports:t,require:c};s[r]=Promise.all(i.map(e=>d[e]||c(e))).then(e=>(o(...e),t))}}define(["./workbox-c0947cf6"],function(e){"use strict";self.addEventListener("message",e=>{e.data&&"SKIP_WAITING"===e.data.type&&self.skipWaiting()}),e.clientsClaim(),e.precacheAndRoute([{url:"index.html",revision:"5a7ffe649910e890fa295b8a9e500af2"},{url:"fonts/noto-serif/serif.css",revision:"58046f3d8267b3ed0d62c72adbe51deb"},{url:"assets/workbox-window.prod.es5-Bd17z0YL.js",revision:null},{url:"assets/index-CLhqODn7.css",revision:null},{url:"assets/index-C5SvMhpw.js",revision:null},{url:"icon.svg",revision:"b92bbf21a5def0153d0cad6212d09eda"},{url:"icons/192.png",revision:"64970e4ed2f786d9fafba5673cd8bf36"},{url:"icons/512.png",revision:"3af43dc04b594529a9f7e1e895e3cd55"},{url:"icons/apple-touch-icon.png",revision:"23249c94534327f902d9b45cbf584cf5"},{url:"manifest.webmanifest",revision:"0f44e38e07d485219c1e803c3f361c07"}],{}),e.cleanupOutdatedCaches(),e.registerRoute(new e.NavigationRoute(e.createHandlerBoundToURL("/index.html"),{denylist:[/^\/functions\//,/^\/rest\//,/^\/auth\//]})),e.registerRoute(/\/auth\/v1\//,new e.NetworkOnly,"GET"),e.registerRoute(/\/functions\/v1\//,new e.NetworkOnly,"GET"),e.registerRoute(/\/rest\/v1\/(messages|conversations|models|generations)/,new e.NetworkFirst({cacheName:"supabase-rest",networkTimeoutSeconds:5,plugins:[new e.ExpirationPlugin({maxEntries:300,maxAgeSeconds:604800})]}),"GET"),e.registerRoute(/\/storage\/v1\/object\//,new e.CacheFirst({cacheName:"supabase-media",plugins:[new e.ExpirationPlugin({maxEntries:200,maxAgeSeconds:2592e3})]}),"GET")});
+const CACHE = 'jinxia-v2'
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.add('/index.html'))
+      .catch(() => undefined),
+  )
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim())
+})
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request
+  if (request.method !== 'GET') return
+
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return
+
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(() => caches.match('/index.html')))
+    return
+  }
+
+  if (/\/(assets|icons|fonts)\//.test(url.pathname)) {
+    event.respondWith(
+      caches.open(CACHE).then(async (cache) => {
+        const cached = await cache.match(request)
+        if (cached) return cached
+        try {
+          const response = await fetch(request)
+          if (response.ok) cache.put(request, response.clone())
+          return response
+        } catch {
+          return cached || Response.error()
+        }
+      }),
+    )
+  }
+})
